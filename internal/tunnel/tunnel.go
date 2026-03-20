@@ -1,10 +1,8 @@
-// Package tunnel implements the proxy server and connection handling logic for ssh-ify.
 package tunnel
 
 import (
 	"bufio"
 	"context"
-	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
@@ -17,23 +15,18 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ayanrajpoot10/ssh-ify/internal/config"
 	"github.com/ayanrajpoot10/ssh-ify/internal/ssh"
-	"github.com/ayanrajpoot10/ssh-ify/pkg/certgen"
 )
 
 // Constants
 const (
-	// BufferPoolSize is the size of each buffer in the pool (32KB)
 	BufferPoolSize = 32 * 1024
 
-	// BufferSize defines the buffer size (in bytes) for reading client requests.
 	BufferSize = 4096 * 4
 
-	// ClientReadTimeout specifies the maximum duration to wait for client data before timing out.
 	ClientReadTimeout = 60 * time.Second
 
-	// WebSocketUpgradeResponse is the HTTP response sent to clients to acknowledge a successful
-	// WebSocket protocol upgrade. This is used to establish SSH-over-WebSocket tunnels.
 	WebSocketUpgradeResponse = "HTTP/1.1 101 Switching Protocols\r\n" +
 		"Upgrade: websocket\r\n" +
 		"Connection: Upgrade\r\n" +
@@ -41,18 +34,11 @@ const (
 		"Sec-WebSocket-Version: 13\r\n\r\n"
 )
 
-// Default configuration values
 var (
-	// DefaultListenAddress is the default address the proxy server listens on (all interfaces).
 	DefaultListenAddress string = "0.0.0.0"
 
-	// DefaultListenPort is the default port the proxy server listens on (HTTP/WS).
 	DefaultListenPort int = 80
 
-	// DefaultListenTLSPort is the default TLS listen port (HTTPS).
-	DefaultListenTLSPort int = 443
-
-	// bufferPool is a pool of reusable byte slices for I/O operations
 	bufferPool = sync.Pool{
 		New: func() interface{} {
 			buf := make([]byte, BufferPoolSize)
@@ -61,39 +47,30 @@ var (
 	}
 )
 
-// Buffer pool functions
-// getBuffer retrieves a buffer from the pool
 func getBuffer() *[]byte {
 	return bufferPool.Get().(*[]byte)
 }
 
-// putBuffer returns a buffer to the pool for reuse
 func putBuffer(buf *[]byte) {
 	bufferPool.Put(buf)
 }
 
-// CopyWithBuffer performs buffered copying using a pooled buffer.
 func CopyWithBuffer(dst io.Writer, src io.Reader) (int64, error) {
 	buf := getBuffer()
 	defer putBuffer(buf)
 	return io.CopyBuffer(dst, src, *buf)
 }
 
-// Server manages TCP and TLS connections for the ssh-ify tunnel proxy server.
 type Server struct {
 	host        string
 	tcpPort     int
-	tlsPort     int
 	ctx         context.Context
 	cancel      context.CancelFunc
 	conns       sync.Map       // map[*Session]struct{} for concurrency safety
 	activeCount int32          // atomic counter for active connections
-	tlsCertFile string         // Path to TLS certificate file
-	tlsKeyFile  string         // Path to TLS key file
 	wg          sync.WaitGroup // WaitGroup to track active sessions
 }
 
-// Session manages a single client connection for the ssh-ify tunnel proxy server.
 type Session struct {
 	client    net.Conn
 	target    net.Conn
@@ -102,8 +79,6 @@ type Session struct {
 	sessionID string
 }
 
-// Server methods
-// Add registers a new client connection with the server.
 func (s *Server) Add(conn *Session) {
 	select {
 	case <-s.ctx.Done():
@@ -116,7 +91,6 @@ func (s *Server) Add(conn *Session) {
 	}
 }
 
-// Remove unregisters a client connection from the server.
 func (s *Server) Remove(conn *Session) {
 	s.conns.Delete(conn)
 	s.wg.Done()
@@ -124,7 +98,6 @@ func (s *Server) Remove(conn *Session) {
 	log.Println("Connection removed. Active:", newCount)
 }
 
-// Shutdown gracefully terminates the server.
 func (s *Server) Shutdown() {
 	log.Println("Closing all active connections...")
 	s.conns.Range(func(key, value any) bool {
@@ -137,44 +110,45 @@ func (s *Server) Shutdown() {
 	log.Println("All sessions closed.")
 }
 
-// NewServer constructs and returns a new Server with default configuration.
-func NewServer() *Server {
+func NewServer(cfg *config.Config) *Server {
+	if cfg == nil {
+		cfg = &config.Config{
+			ListenAddress: DefaultListenAddress,
+			ListenPort:    DefaultListenPort,
+		}
+	}
+
+	if cfg.ListenAddress == "" {
+		cfg.ListenAddress = DefaultListenAddress
+	}
+	if cfg.ListenPort == 0 {
+		cfg.ListenPort = DefaultListenPort
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Server{
-		host:        DefaultListenAddress,
-		tcpPort:     DefaultListenPort,
-		tlsPort:     DefaultListenTLSPort,
-		ctx:         ctx,
-		cancel:      cancel,
-		conns:       sync.Map{},
-		tlsCertFile: "cert.pem",
-		tlsKeyFile:  "key.pem",
+		host:    cfg.ListenAddress,
+		tcpPort: cfg.ListenPort,
+		ctx:     ctx,
+		cancel:  cancel,
+		conns:   sync.Map{},
 	}
 }
 
-// StartServer launches the tunnel proxy server and manages its lifecycle.
-func StartServer() {
-	s := NewServer()
+func StartServer(cfg *config.Config) {
+	s := NewServer(cfg)
 
-	// Create a channel to receive OS signals for graceful shutdown.
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
-	// Start both TCP and TLS servers simultaneously in separate goroutines.
 	s.ListenAndServe()
 
-	// Block until a shutdown signal is received (e.g., Ctrl+C or SIGTERM).
 	<-c
-	// Signal received: stop the server and log shutdown.
 	s.cancel()
 	s.Shutdown()
 	log.Println("Shutting down...")
 }
 
-// Listen and serve methods
-// serveListener continuously accepts incoming connections on the provided listener and
-// spawns a new session for each connection. It monitors the server context for shutdown
-// signals and ensures proper handling of connection deadlines and errors.
 func serveListener(s *Server, ln net.Listener) {
 	defer ln.Close()
 	for {
@@ -182,7 +156,6 @@ func serveListener(s *Server, ln net.Listener) {
 		case <-s.ctx.Done():
 			return
 		default:
-			// Set deadline for TCPListener if possible
 			if tcpLn, ok := ln.(*net.TCPListener); ok {
 				tcpLn.SetDeadline(time.Now().Add(2 * time.Second))
 			}
@@ -199,16 +172,10 @@ func serveListener(s *Server, ln net.Listener) {
 	}
 }
 
-// ListenAndServe starts both TCP and TLS tunnel servers simultaneously.
 func (s *Server) ListenAndServe() {
-	// Start TCP listener in a goroutine
 	go s.listenTCP()
-
-	// Start TLS listener in a goroutine
-	go s.listenTLS()
 }
 
-// listenTCP starts the plain TCP listener and handles incoming connections.
 func (s *Server) listenTCP() {
 	addr := fmt.Sprintf("%s:%d", s.host, s.tcpPort)
 	ln, err := net.Listen("tcp", addr)
@@ -219,33 +186,6 @@ func (s *Server) listenTCP() {
 	serveListener(s, ln)
 }
 
-// listenTLS starts the TLS listener and handles incoming secure connections.
-func (s *Server) listenTLS() {
-	// Auto-generate certificates if they don't exist
-	if err := certgen.GenerateCert(s.tlsCertFile, s.tlsKeyFile); err != nil {
-		log.Fatalf("Failed to generate TLS certificates: %v", err)
-	}
-
-	cert, err := tls.LoadX509KeyPair(s.tlsCertFile, s.tlsKeyFile)
-	if err != nil {
-		log.Fatalf("Failed to load TLS certificate or key: %v", err)
-	}
-
-	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}}
-	addr := fmt.Sprintf("%s:%d", s.host, s.tlsPort)
-
-	tcpLn, err := net.Listen("tcp", addr)
-	if err != nil {
-		log.Fatalf("Failed to listen on TLS %s: %v", addr, err)
-	}
-
-	ln := tls.NewListener(tcpLn, tlsConfig)
-	log.Printf("TLS server listening on %s", addr)
-	serveListener(s, ln)
-}
-
-// Session methods
-// Close safely closes both client and target connections.
 func (s *Session) Close() {
 	if s.client != nil {
 		s.client.Close()
@@ -255,11 +195,9 @@ func (s *Session) Close() {
 	}
 }
 
-// Handle manages the lifecycle of a client connection.
 func (s *Session) Handle() {
 	log.Printf("[session %s] New connection opened", s.sessionID)
 
-	// Set a read deadline to avoid hanging connections.
 	s.client.SetReadDeadline(time.Now().Add(ClientReadTimeout))
 	reader := bufio.NewReaderSize(s.client, BufferSize)
 	var builder strings.Builder
@@ -274,7 +212,6 @@ func (s *Session) Handle() {
 		if strings.HasSuffix(builder.String(), "\r\n\r\n") {
 			break
 		}
-		// Prevent header overflow attacks.
 		if builder.Len() > BufferSize {
 			log.Printf("[session %s] Header too large, closing connection", s.sessionID)
 			s.client.Write([]byte("HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n"))
@@ -296,16 +233,13 @@ func (s *Session) Handle() {
 		}
 	}
 
-	// Remove read deadline for rest of session.
 	s.client.SetReadDeadline(time.Time{})
 
-	// Handle WebSocket upgrade and tunnel setup using the new handler.
 	if WebSocketHandler(s, reqLines[1:]) {
 		s.Relay()
 	}
 }
 
-// Relay copies data bidirectionally between client and target connections.
 func (s *Session) Relay() {
 	defer func() {
 		s.Close()          // Clean up both connections
@@ -323,7 +257,6 @@ func (s *Session) Relay() {
 		if err != nil && !isIgnorableError(err) {
 			log.Printf("[session %s] Error copying client to target: %v", s.sessionID, err)
 		}
-		// Important: Closing target to unblock other io.Copy
 		s.target.Close()
 	}()
 
@@ -334,15 +267,18 @@ func (s *Session) Relay() {
 		if err != nil && !isIgnorableError(err) {
 			log.Printf("[session %s] Error copying target to client: %v", s.sessionID, err)
 		}
-		// Important: Closing client to unblock other io.Copy
 		s.client.Close()
 	}()
 
 	wg.Wait()
 }
 
-// Utility functions
-// HeaderValue extracts the value of a specific HTTP header from header lines.
+var defaultSSHConfig *ssh.ServerConfig
+
+func SetSSHConfig(cfg *ssh.ServerConfig) {
+	defaultSSHConfig = cfg
+}
+
 func HeaderValue(headers []string, headerName string) string {
 	headerNameLower := strings.ToLower(headerName)
 	for _, line := range headers {
@@ -361,9 +297,6 @@ func HeaderValue(headers []string, headerName string) string {
 	return ""
 }
 
-// isIgnorableError returns true if the error is EOF or a known benign network error.
-//
-// Used internally to suppress logging for expected connection closure errors.
 func isIgnorableError(err error) bool {
 	if err == io.EOF {
 		return true
@@ -375,8 +308,6 @@ func isIgnorableError(err error) bool {
 	return strings.Contains(msg, "use of closed network connection")
 }
 
-// WebSocket handling
-// WebSocketHandler upgrades a session to WebSocket and establishes an SSH tunnel.
 func WebSocketHandler(s *Session, reqLines []string) bool {
 	upgradeHeader := HeaderValue(reqLines, "Upgrade")
 
@@ -389,12 +320,12 @@ func WebSocketHandler(s *Session, reqLines []string) bool {
 	log.Printf("[session %s] WebSocket upgrade: using in-process SSH server.", s.sessionID)
 	proxyEnd, sshEnd := net.Pipe()
 	if s.sshConfig == nil {
-		var err error
-		s.sshConfig, err = ssh.NewConfig()
-		if err != nil {
-			log.Printf("[session %s] Error initializing SSH config: %v", s.sessionID, err)
+		if defaultSSHConfig == nil {
+			log.Printf("[session %s] SSH config not initialized", s.sessionID)
+			s.Close()
 			return false
 		}
+		s.sshConfig = defaultSSHConfig
 	}
 	go ssh.HandleSSHConnection(sshEnd, s.sshConfig, func() {
 		s.server.Add(s)

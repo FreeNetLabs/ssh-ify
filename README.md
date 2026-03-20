@@ -16,20 +16,31 @@ go install github.com/ayanrajpoot10/ssh-ify@latest
 
 ## Usage
 
+Configuration is now file based (`config.json`) + optional env vars.
+
 ### Start the server
 ```sh
 ./ssh-ify
 ```
 
-### Add a user
-```sh
-./ssh-ify add-user username password
+### Expected config file
+`~/.config/ssh-ify/config.json` (default)
+
+```json
+{
+  "listen_address": "0.0.0.0",
+  "listen_port": 80,
+  "ssh_host_key_path": "host_key",
+  "users": [
+    { "username": "alice", "password": "s3cret" }
+  ]
+}
 ```
 
-### List users
-```sh
-./ssh-ify list-users
-```
+### Optional env-based user config
+- `SSH_IFY_USERS=user1:pass1,user2:pass2`
+- config file values are merged with env values
+
 
 ## License
 This project is licensed under the [MIT License](LICENSE).

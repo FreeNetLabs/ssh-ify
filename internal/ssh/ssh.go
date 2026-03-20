@@ -1,4 +1,3 @@
-// Package ssh provides core SSH server functionality for ssh-ify.
 package ssh
 
 import (
@@ -15,28 +14,19 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/ayanrajpoot10/ssh-ify/internal/usermgmt"
-
+	"github.com/ayanrajpoot10/ssh-ify/internal/config"
 	"golang.org/x/crypto/ssh"
 )
 
-// Constants
 const (
-	// SSHBufferPoolSize is the size of each buffer in the SSH pool (32KB)
-	// Optimized for SSH channel data transfer
 	SSHBufferPoolSize = 32 * 1024
 )
 
-// Type aliases
-// ServerConfig is a type alias for ssh.ServerConfig.
 type ServerConfig = ssh.ServerConfig
 
-// Global variables
 var (
-	// Global user database instance
-	userDB *usermgmt.UserDB
+	userCredentials map[string]string
 
-	// sshBufferPool is a pool of reusable byte slices for SSH I/O operations
 	sshBufferPool = sync.Pool{
 		New: func() interface{} {
 			buf := make([]byte, SSHBufferPoolSize)
@@ -45,127 +35,120 @@ var (
 	}
 )
 
-// Buffer pool functions
-// getSSHBuffer retrieves a buffer from the SSH pool
 func getSSHBuffer() *[]byte {
 	return sshBufferPool.Get().(*[]byte)
 }
 
-// putSSHBuffer returns a buffer to the SSH pool for reuse
 func putSSHBuffer(buf *[]byte) {
 	sshBufferPool.Put(buf)
 }
 
-// CopyWithSSHBuffer performs buffered copying using a pooled buffer.
 func CopyWithSSHBuffer(dst io.Writer, src io.Reader) (int64, error) {
 	buf := getSSHBuffer()
 	defer putSSHBuffer(buf)
 	return io.CopyBuffer(dst, src, *buf)
 }
 
-// Authentication functions
-// InitializeAuth sets up the global authentication system.
-func InitializeAuth(dbPath string) error {
-	userDB = usermgmt.NewUserDB(dbPath)
+func InitializeAuth(cfg *config.Config) error {
+	if cfg == nil {
+		return fmt.Errorf("configuration required for auth initialization")
+	}
+
+	userCredentials = make(map[string]string)
+	for _, u := range cfg.Users {
+		if u.Username == "" || u.Password == "" {
+			continue
+		}
+		userCredentials[u.Username] = u.Password
+	}
+
+	if len(userCredentials) == 0 {
+		return fmt.Errorf("no users configured: set users in config file or SSH_IFY_USERS env")
+	}
+
 	return nil
 }
 
-// GetUserDB returns the global user database instance.
-func GetUserDB() *usermgmt.UserDB {
-	return userDB
-}
-
-// PasswordAuth implements ssh.PasswordCallback for authentication.
 func PasswordAuth(c ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
-	if userDB == nil {
-		log.Printf("PasswordAuth: user database not initialized")
-		return nil, fmt.Errorf("user database not initialized")
+	if userCredentials == nil {
+		log.Printf("PasswordAuth: auth is not initialized")
+		return nil, fmt.Errorf("authentication not initialized")
 	}
 
-	success := userDB.Authenticate(c.User(), string(password))
-	if success {
-		log.Printf("PasswordAuth: successful login for user '%s'", c.User())
-		return nil, nil
-	} else {
+	expected, exists := userCredentials[c.User()]
+	if !exists || expected != string(password) {
 		log.Printf("PasswordAuth: failed login attempt for user '%s'", c.User())
 		return nil, fmt.Errorf("invalid credentials")
 	}
+
+	log.Printf("PasswordAuth: successful login for user '%s'", c.User())
+	return nil, nil
 }
 
-// Key generation functions
-// NewRSAPrivateKey generates a new RSA private key.
 func NewRSAPrivateKey(bitSize int) (*rsa.PrivateKey, error) {
-	// Generate RSA private key of given bit size.
 	privateKey, err := rsa.GenerateKey(rand.Reader, bitSize)
 	if err != nil {
 		return nil, err
 	}
-	// Validate generated key for correctness.
 	if err := privateKey.Validate(); err != nil {
 		return nil, err
 	}
 	return privateKey, nil
 }
 
-// RSAPrivateKeyPEM encodes an RSA private key to PEM format.
 func RSAPrivateKeyPEM(privateKey *rsa.PrivateKey) []byte {
-	// Marshal RSA key to PKCS#1 DER format.
 	privDER := x509.MarshalPKCS1PrivateKey(privateKey)
-	// Create PEM block for private key.
 	privBlock := &pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: privDER,
 	}
-	// Encode PEM block to memory and return.
 	return pem.EncodeToMemory(privBlock)
 }
 
-// Configuration functions
-// NewConfig initializes and returns a new SSH server configuration.
-func NewConfig() (*ssh.ServerConfig, error) {
-	// Initialize the authentication system if not already done
-	if GetUserDB() == nil {
-		if err := InitializeAuth(""); err != nil {
-			return nil, fmt.Errorf("failed to initialize authentication: %v", err)
-		}
+func NewConfig(cfg *config.Config) (*ssh.ServerConfig, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("configuration required for SSH server config")
 	}
 
-	keyPath := "host_key"
-	// Try to read existing host key from disk.
+	if err := InitializeAuth(cfg); err != nil {
+		return nil, err
+	}
+
+	keyPath := cfg.SSHHostKeyPath
+	if keyPath == "" {
+		keyPath = config.DefaultSSHHostKeyPath
+	}
+
 	privateBytes, err := os.ReadFile(keyPath)
 	if err != nil {
-		// If not found, generate a new RSA key and save it.
 		privateKey, err := NewRSAPrivateKey(4096)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate private key: %v", err)
 		}
+
 		privateBytes = RSAPrivateKeyPEM(privateKey)
 		if err := os.WriteFile(keyPath, privateBytes, 0600); err != nil {
 			return nil, fmt.Errorf("failed to save generated host key: %v", err)
 		}
 	}
-	// Parse the PEM-encoded private key for SSH server use.
+
 	private, err := ssh.ParsePrivateKey(privateBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse host key: %v", err)
 	}
-	// Set up server config with password authentication.
-	config := &ssh.ServerConfig{
+
+	cfgSSH := &ssh.ServerConfig{
 		PasswordCallback: PasswordAuth,
 		BannerCallback: func(conn ssh.ConnMetadata) string {
 			return "Welcome to ssh-ify.\n"
 		},
 	}
 
-	// Set custom SSH version banner
-	config.ServerVersion = "SSH-2.0-ssh-ify_1.0"
-
-	config.AddHostKey(private)
-	return config, nil
+	cfgSSH.ServerVersion = "SSH-2.0-ssh-ify_1.0"
+	cfgSSH.AddHostKey(private)
+	return cfgSSH, nil
 }
 
-// Channel handling functions
-// ForwardData relays data bidirectionally between an SSH channel and a target connection.
 func ForwardData(ch ssh.Channel, targetConn net.Conn, addr string) {
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -184,22 +167,18 @@ func ForwardData(ch ssh.Channel, targetConn net.Conn, addr string) {
 		}
 	}()
 	wg.Wait()
-	// Close connections after both directions are done
 	targetConn.Close()
 	ch.Close()
 }
 
-// HandleSSHChannels processes incoming SSH channels for port forwarding.
 func HandleSSHChannels(chans <-chan ssh.NewChannel) {
 	for newChannel := range chans {
-		// Step 1: Validate channel type
 		if !isDirectTCPIPChannel(newChannel) {
 			log.Printf("HandleChannels: Unknown channel type: %s", newChannel.ChannelType())
 			newChannel.Reject(ssh.UnknownChannelType, "only port forwarding allowed")
 			continue
 		}
 
-		// Step 2: Parse direct-tcpip extra data
 		targetHost, targetPort, err := parseDirectTCPIPExtra(newChannel.ExtraData())
 		if err != nil {
 			log.Printf("HandleChannels: %v", err)
@@ -207,25 +186,20 @@ func HandleSSHChannels(chans <-chan ssh.NewChannel) {
 			continue
 		}
 
-		// Step 3: Accept the channel
 		ch, reqs, err := newChannel.Accept()
 		if err != nil {
 			log.Printf("HandleChannels: Error accepting channel: %v", err)
 			continue
 		}
 		go ssh.DiscardRequests(reqs)
-
-		// Step 4: Handle forwarding in a goroutine
 		go handlePortForwarding(targetHost, targetPort, ch)
 	}
 }
 
-// isDirectTCPIPChannel reports whether the SSH channel is of type "direct-tcpip".
 func isDirectTCPIPChannel(newChannel ssh.NewChannel) bool {
 	return newChannel.ChannelType() == "direct-tcpip"
 }
 
-// parseDirectTCPIPExtra extracts target host and port from direct-tcpip extra data.
 func parseDirectTCPIPExtra(extra []byte) (string, uint32, error) {
 	if len(extra) < 4 {
 		return "", 0, fmt.Errorf("invalid direct-tcpip request: insufficient data for host length")
@@ -240,7 +214,6 @@ func parseDirectTCPIPExtra(extra []byte) (string, uint32, error) {
 	return targetHost, targetPort, nil
 }
 
-// handlePortForwarding establishes a TCP connection to the target and relays data.
 func handlePortForwarding(targetHost string, targetPort uint32, ch ssh.Channel) {
 	defer ch.Close()
 	addr := net.JoinHostPort(targetHost, strconv.Itoa(int(targetPort)))
@@ -252,26 +225,16 @@ func handlePortForwarding(targetHost string, targetPort uint32, ch ssh.Channel) 
 	ForwardData(ch, targetConn, addr)
 }
 
-// Server functions
-// HandleSSHConnection handles an incoming SSH connection.
 func HandleSSHConnection(conn net.Conn, config *ssh.ServerConfig, onAuthSuccess func()) {
-	// Accept the incoming SSH connection and extract channels/requests.
 	sshConn, chans, reqs, err := ssh.NewServerConn(conn, config)
 	if err != nil {
-		// If handshake fails, close connection.
 		conn.Close()
 		return
 	}
-
-	// Call the success callback if provided (authentication was successful)
 	if onAuthSuccess != nil {
 		onAuthSuccess()
 	}
-
-	// Discard global requests (not used).
 	go ssh.DiscardRequests(reqs)
-	// Handle port forwarding channels.
 	HandleSSHChannels(chans)
-	// Close SSH connection after handling channels.
 	sshConn.Close()
 }
