@@ -89,10 +89,10 @@ func NewConfig(cfg *config.Config) (*ssh.ServerConfig, error) {
 	cfgSSH := &ssh.ServerConfig{
 		PasswordCallback: PasswordAuth,
 		BannerCallback: func(conn ssh.ConnMetadata) string {
-			if cfg.BannerMessage != "" {
-				return cfg.BannerMessage
+			if cfg.Banner != "" {
+				return cfg.Banner
 			}
-			return config.DefaultBannerMessage
+			return config.DefaultBanner
 		},
 	}
 

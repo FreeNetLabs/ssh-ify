@@ -30,7 +30,7 @@ const (
 
 type Server struct {
 	host        string
-	tcpPort     int
+	port        int
 	ctx         context.Context
 	cancel      context.CancelFunc
 	conns       sync.Map
@@ -87,7 +87,7 @@ func NewServer(cfg *config.Config) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Server{
 		host:      cfg.ListenAddress,
-		tcpPort:   cfg.ListenPort,
+		port:      cfg.ListenPort,
 		ctx:       ctx,
 		cancel:    cancel,
 		conns:     sync.Map{},
@@ -110,7 +110,7 @@ func StartServer(cfg *config.Config) {
 }
 
 func (s *Server) ListenAndServe() {
-	addr := fmt.Sprintf("%s:%d", s.host, s.tcpPort)
+	addr := fmt.Sprintf("%s:%d", s.host, s.port)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("Failed to listen on TCP %s: %v", addr, err)
