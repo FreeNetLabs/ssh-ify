@@ -36,6 +36,7 @@ type Server struct {
 	conns       sync.Map
 	activeCount int32
 	wg          sync.WaitGroup
+	sshConfig   *ssh.ServerConfig
 }
 
 type Session struct {
@@ -78,13 +79,19 @@ func (s *Server) Shutdown() {
 }
 
 func NewServer(cfg *config.Config) *Server {
+	sshCfg, err := ssh.NewConfig(cfg)
+	if err != nil {
+		log.Fatalf("Failed to initialize SSH config: %v", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Server{
-		host:    cfg.ListenAddress,
-		tcpPort: cfg.ListenPort,
-		ctx:     ctx,
-		cancel:  cancel,
-		conns:   sync.Map{},
+		host:      cfg.ListenAddress,
+		tcpPort:   cfg.ListenPort,
+		ctx:       ctx,
+		cancel:    cancel,
+		conns:     sync.Map{},
+		sshConfig: sshCfg,
 	}
 }
 
@@ -127,7 +134,7 @@ func (s *Server) ListenAndServe() {
 					}
 					return
 				}
-				sess := &Session{client: conn, server: s, sessionID: conn.RemoteAddr().String()}
+				sess := &Session{client: conn, server: s, sessionID: conn.RemoteAddr().String(), sshConfig: s.sshConfig}
 				go sess.Handle()
 			}
 		}
@@ -221,12 +228,6 @@ func (s *Session) Relay() {
 	wg.Wait()
 }
 
-var defaultSSHConfig *ssh.ServerConfig
-
-func SetSSHConfig(cfg *ssh.ServerConfig) {
-	defaultSSHConfig = cfg
-}
-
 func HeaderValue(headers []string, headerName string) string {
 	headerNameLower := strings.ToLower(headerName)
 	for _, line := range headers {
@@ -268,12 +269,9 @@ func WebSocketHandler(s *Session, reqLines []string) bool {
 	log.Printf("[session %s] WebSocket upgrade: using in-process SSH server.", s.sessionID)
 	proxyEnd, sshEnd := net.Pipe()
 	if s.sshConfig == nil {
-		if defaultSSHConfig == nil {
-			log.Printf("[session %s] SSH config not initialized", s.sessionID)
-			s.Close()
-			return false
-		}
-		s.sshConfig = defaultSSHConfig
+		log.Printf("[session %s] SSH config not initialized", s.sessionID)
+		s.Close()
+		return false
 	}
 	go ssh.HandleSSHConnection(sshEnd, s.sshConfig, func() {
 		s.server.Add(s)
