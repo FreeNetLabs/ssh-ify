@@ -25,9 +25,7 @@ const (
 
 	WebSocketUpgradeResponse = "HTTP/1.1 101 Switching Protocols\r\n" +
 		"Upgrade: websocket\r\n" +
-		"Connection: Upgrade\r\n" +
-		"Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n" +
-		"Sec-WebSocket-Version: 13\r\n\r\n"
+		"Connection: Upgrade\r\n\r\n"
 )
 
 type Server struct {
@@ -35,9 +33,9 @@ type Server struct {
 	tcpPort     int
 	ctx         context.Context
 	cancel      context.CancelFunc
-	conns       sync.Map       // map[*Session]struct{} for concurrency safety
-	activeCount int32          // atomic counter for active connections
-	wg          sync.WaitGroup // WaitGroup to track active sessions
+	conns       sync.Map
+	activeCount int32
+	wg          sync.WaitGroup
 }
 
 type Session struct {
