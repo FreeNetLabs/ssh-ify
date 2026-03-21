@@ -1,9 +1,7 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"os"
 
 	"github.com/ayanrajpoot10/ssh-ify/internal/config"
 	"github.com/ayanrajpoot10/ssh-ify/internal/ssh"
@@ -13,19 +11,16 @@ import (
 func main() {
 	cfg, err := config.LoadConfig("")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to read config: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Failed to read config: %v", err)
 	}
 
 	if err := ssh.InitializeAuth(cfg); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to configure authentication: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Failed to configure authentication: %v", err)
 	}
 
 	sshCfg, err := ssh.NewConfig(cfg)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to initialize SSH server config: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Failed to initialize SSH server config: %v", err)
 	}
 
 	log.Println("Starting ssh-ify tunnel server...")
