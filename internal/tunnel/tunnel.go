@@ -102,41 +102,36 @@ func StartServer(cfg *config.Config) {
 	log.Println("Shutting down...")
 }
 
-func serveListener(s *Server, ln net.Listener) {
-	defer ln.Close()
-	for {
-		select {
-		case <-s.ctx.Done():
-			return
-		default:
-			if tcpLn, ok := ln.(*net.TCPListener); ok {
-				tcpLn.SetDeadline(time.Now().Add(2 * time.Second))
-			}
-			conn, err := ln.Accept()
-			if err != nil {
-				if ne, ok := err.(net.Error); ok && ne.Timeout() {
-					continue
-				}
-				return
-			}
-			sess := &Session{client: conn, server: s, sessionID: conn.RemoteAddr().String()}
-			go sess.Handle()
-		}
-	}
-}
-
 func (s *Server) ListenAndServe() {
-	go s.listenTCP()
-}
-
-func (s *Server) listenTCP() {
 	addr := fmt.Sprintf("%s:%d", s.host, s.tcpPort)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("Failed to listen on TCP %s: %v", addr, err)
 	}
 	log.Printf("TCP server listening on %s", addr)
-	serveListener(s, ln)
+
+	go func() {
+		defer ln.Close()
+		for {
+			select {
+			case <-s.ctx.Done():
+				return
+			default:
+				if tcpLn, ok := ln.(*net.TCPListener); ok {
+					tcpLn.SetDeadline(time.Now().Add(2 * time.Second))
+				}
+				conn, err := ln.Accept()
+				if err != nil {
+					if ne, ok := err.(net.Error); ok && ne.Timeout() {
+						continue
+					}
+					return
+				}
+				sess := &Session{client: conn, server: s, sessionID: conn.RemoteAddr().String()}
+				go sess.Handle()
+			}
+		}
+	}()
 }
 
 func (s *Session) Close() {
