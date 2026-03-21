@@ -18,36 +18,11 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-const (
-	SSHBufferPoolSize = 32 * 1024
-)
-
 type ServerConfig = ssh.ServerConfig
 
 var (
 	userCredentials map[string]string
-
-	sshBufferPool = sync.Pool{
-		New: func() interface{} {
-			buf := make([]byte, SSHBufferPoolSize)
-			return &buf
-		},
-	}
 )
-
-func getSSHBuffer() *[]byte {
-	return sshBufferPool.Get().(*[]byte)
-}
-
-func putSSHBuffer(buf *[]byte) {
-	sshBufferPool.Put(buf)
-}
-
-func CopyWithSSHBuffer(dst io.Writer, src io.Reader) (int64, error) {
-	buf := getSSHBuffer()
-	defer putSSHBuffer(buf)
-	return io.CopyBuffer(dst, src, *buf)
-}
 
 func InitializeAuth(cfg *config.Config) error {
 	if cfg == nil {
@@ -63,7 +38,7 @@ func InitializeAuth(cfg *config.Config) error {
 	}
 
 	if len(userCredentials) == 0 {
-		return fmt.Errorf("no users configured: set users in config file or SSH_IFY_USERS env")
+		return fmt.Errorf("no users configured: set users in config file")
 	}
 
 	return nil
@@ -154,14 +129,14 @@ func ForwardData(ch ssh.Channel, targetConn net.Conn, addr string) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		_, err := CopyWithSSHBuffer(targetConn, ch)
+		_, err := io.Copy(targetConn, ch)
 		if err != nil && err != io.EOF {
 			log.Printf("forwardChannel: Error copying SSH->%s: %v", addr, err)
 		}
 	}()
 	go func() {
 		defer wg.Done()
-		_, err := CopyWithSSHBuffer(ch, targetConn)
+		_, err := io.Copy(ch, targetConn)
 		if err != nil && err != io.EOF {
 			log.Printf("forwardChannel: Error copying %s->SSH: %v", addr, err)
 		}

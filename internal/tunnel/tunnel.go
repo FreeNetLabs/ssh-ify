@@ -21,11 +21,8 @@ import (
 
 // Constants
 const (
-	BufferPoolSize = 32 * 1024
-
-	BufferSize = 4096 * 4
-
 	ClientReadTimeout = 60 * time.Second
+	MaxHeaderSize     = 16384 // 16KB
 
 	WebSocketUpgradeResponse = "HTTP/1.1 101 Switching Protocols\r\n" +
 		"Upgrade: websocket\r\n" +
@@ -38,28 +35,7 @@ var (
 	DefaultListenAddress string = "0.0.0.0"
 
 	DefaultListenPort int = 80
-
-	bufferPool = sync.Pool{
-		New: func() interface{} {
-			buf := make([]byte, BufferPoolSize)
-			return &buf
-		},
-	}
 )
-
-func getBuffer() *[]byte {
-	return bufferPool.Get().(*[]byte)
-}
-
-func putBuffer(buf *[]byte) {
-	bufferPool.Put(buf)
-}
-
-func CopyWithBuffer(dst io.Writer, src io.Reader) (int64, error) {
-	buf := getBuffer()
-	defer putBuffer(buf)
-	return io.CopyBuffer(dst, src, *buf)
-}
 
 type Server struct {
 	host        string
@@ -199,7 +175,7 @@ func (s *Session) Handle() {
 	log.Printf("[session %s] New connection opened", s.sessionID)
 
 	s.client.SetReadDeadline(time.Now().Add(ClientReadTimeout))
-	reader := bufio.NewReaderSize(s.client, BufferSize)
+	reader := bufio.NewReader(s.client)
 	var builder strings.Builder
 	for {
 		line, err := reader.ReadString('\n')
@@ -212,7 +188,7 @@ func (s *Session) Handle() {
 		if strings.HasSuffix(builder.String(), "\r\n\r\n") {
 			break
 		}
-		if builder.Len() > BufferSize {
+		if builder.Len() > MaxHeaderSize {
 			log.Printf("[session %s] Header too large, closing connection", s.sessionID)
 			s.client.Write([]byte("HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n"))
 			return
@@ -253,7 +229,7 @@ func (s *Session) Relay() {
 	// Copy client → target
 	go func() {
 		defer wg.Done()
-		_, err := CopyWithBuffer(s.target, s.client)
+		_, err := io.Copy(s.target, s.client)
 		if err != nil && !isIgnorableError(err) {
 			log.Printf("[session %s] Error copying client to target: %v", s.sessionID, err)
 		}
@@ -263,7 +239,7 @@ func (s *Session) Relay() {
 	// Copy target → client
 	go func() {
 		defer wg.Done()
-		_, err := CopyWithBuffer(s.client, s.target)
+		_, err := io.Copy(s.client, s.target)
 		if err != nil && !isIgnorableError(err) {
 			log.Printf("[session %s] Error copying target to client: %v", s.sessionID, err)
 		}
