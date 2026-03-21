@@ -1,7 +1,7 @@
-module github.com/ayanrajpoot10/ssh-ify
+module github.com/FreeNetLabs/ssh-ify
 
-go 1.24.4
+go 1.26.1
 
-require golang.org/x/crypto v0.42.0
+require golang.org/x/crypto v0.49.0
 
-require golang.org/x/sys v0.36.0 // indirect
+require golang.org/x/sys v0.42.0 // indirect

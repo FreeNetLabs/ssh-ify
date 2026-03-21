@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/ayanrajpoot10/ssh-ify/internal/config"
+	"github.com/FreeNetLabs/ssh-ify/internal/config"
 	"golang.org/x/crypto/ssh"
 )
 

@@ -15,8 +15,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ayanrajpoot10/ssh-ify/internal/config"
-	"github.com/ayanrajpoot10/ssh-ify/internal/ssh"
+	"github.com/FreeNetLabs/ssh-ify/internal/config"
+	"github.com/FreeNetLabs/ssh-ify/internal/ssh"
 )
 
 const (
@@ -95,7 +95,7 @@ func NewServer(cfg *config.Config) *Server {
 	}
 }
 
-func StartServer(cfg *config.Config) {
+func Start(cfg *config.Config) {
 	s := NewServer(cfg)
 
 	c := make(chan os.Signal, 1)
@@ -197,8 +197,8 @@ func (s *Session) Handle() {
 
 func (s *Session) Relay() {
 	defer func() {
-		s.Close()          // Clean up both connections
-		s.server.Remove(s) // Remove from active map
+		s.Close()
+		s.server.Remove(s)
 		log.Printf("[session %s] Connection closed.", s.sessionID)
 	}()
 

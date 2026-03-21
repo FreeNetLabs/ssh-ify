@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"github.com/ayanrajpoot10/ssh-ify/internal/config"
-	"github.com/ayanrajpoot10/ssh-ify/internal/tunnel"
+	"github.com/FreeNetLabs/ssh-ify/internal/config"
+	"github.com/FreeNetLabs/ssh-ify/internal/tunnel"
 )
 
 func main() {
@@ -13,5 +13,5 @@ func main() {
 		log.Fatalf("Failed to read config: %v", err)
 	}
 
-	tunnel.StartServer(cfg)
+	tunnel.Start(cfg)
 }
