@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 type Config struct {
@@ -27,28 +26,21 @@ const (
 )
 
 func GetConfigDir() (string, error) {
-	var configDir string
-
-	if xdgConfig := os.Getenv("XDG_CONFIG_HOME"); xdgConfig != "" {
-		configDir = filepath.Join(xdgConfig, "ssh-ify")
-	} else if appData := os.Getenv("APPDATA"); appData != "" {
-		configDir = filepath.Join(appData, "ssh-ify")
-	} else if homeDir, err := os.UserHomeDir(); err == nil {
-		configDir = filepath.Join(homeDir, ".config", "ssh-ify")
-	} else {
-		return "", err
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get user config directory: %w", err)
 	}
 
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		return "", err
+	appConfigDir := filepath.Join(configDir, "ssh-ify")
+	if err := os.MkdirAll(appConfigDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	return configDir, nil
+	return appConfigDir, nil
 }
 
 func GetConfigFilePath() (string, error) {
-	cwd, err := os.Getwd()
-	if err == nil {
+	if cwd, err := os.Getwd(); err == nil {
 		localPath := filepath.Join(cwd, "config.json")
 		if _, err := os.Stat(localPath); err == nil {
 			return localPath, nil
@@ -64,15 +56,15 @@ func GetConfigFilePath() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return filepath.Join(configDir, "config.json"), nil
 }
 
 func LoadConfig(path string) (*Config, error) {
 	if path == "" {
 		var err error
-		path, err = GetConfigFilePath()
-		if err != nil {
-			return nil, err
+		if path, err = GetConfigFilePath(); err != nil {
+			return nil, fmt.Errorf("could not determine config file path: %w", err)
 		}
 	}
 
@@ -85,51 +77,14 @@ func LoadConfig(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			loadUsersFromEnv(cfg)
 			return cfg, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to read config file '%s': %w", path, err)
 	}
 
 	if err := json.Unmarshal(data, cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse config: %w", err)
+		return nil, fmt.Errorf("failed to parse config file '%s': %w", path, err)
 	}
-
-	if cfg.ListenAddress == "" {
-		cfg.ListenAddress = DefaultListenAddress
-	}
-	if cfg.ListenPort == 0 {
-		cfg.ListenPort = DefaultListenPort
-	}
-	if cfg.SSHHostKeyPath == "" {
-		cfg.SSHHostKeyPath = DefaultSSHHostKeyPath
-	}
-
-	loadUsersFromEnv(cfg)
 
 	return cfg, nil
-}
-
-func loadUsersFromEnv(cfg *Config) {
-	if cfg == nil {
-		return
-	}
-
-	usersFromEnv := os.Getenv("SSH_IFY_USERS")
-	if usersFromEnv == "" {
-		return
-	}
-
-	pairs := strings.Split(usersFromEnv, ",")
-	for _, pair := range pairs {
-		pair = strings.TrimSpace(pair)
-		if pair == "" {
-			continue
-		}
-		parts := strings.SplitN(pair, ":", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		cfg.Users = append(cfg.Users, AuthUser{Username: strings.TrimSpace(parts[0]), Password: strings.TrimSpace(parts[1])})
-	}
 }
