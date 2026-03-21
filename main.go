@@ -14,10 +14,6 @@ func main() {
 		log.Fatalf("Failed to read config: %v", err)
 	}
 
-	if err := ssh.InitializeAuth(cfg); err != nil {
-		log.Fatalf("Failed to configure authentication: %v", err)
-	}
-
 	sshCfg, err := ssh.NewConfig(cfg)
 	if err != nil {
 		log.Fatalf("Failed to initialize SSH server config: %v", err)
