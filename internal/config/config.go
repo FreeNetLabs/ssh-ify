@@ -11,6 +11,7 @@ type Config struct {
 	ListenAddress  string     `json:"listen_address"`
 	ListenPort     int        `json:"listen_port"`
 	SSHHostKeyPath string     `json:"ssh_host_key_path"`
+	BannerMessage  string     `json:"banner_message"`
 	Users          []AuthUser `json:"users"`
 }
 
@@ -23,6 +24,7 @@ const (
 	DefaultListenAddress  = "0.0.0.0"
 	DefaultListenPort     = 80
 	DefaultSSHHostKeyPath = "host_key"
+	DefaultBannerMessage  = "Welcome to ssh-ify.\n"
 )
 
 func GetConfigDir() (string, error) {
@@ -72,6 +74,7 @@ func LoadConfig(path string) (*Config, error) {
 		ListenAddress:  DefaultListenAddress,
 		ListenPort:     DefaultListenPort,
 		SSHHostKeyPath: DefaultSSHHostKeyPath,
+		BannerMessage:  DefaultBannerMessage,
 	}
 
 	data, err := os.ReadFile(path)

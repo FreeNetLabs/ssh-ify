@@ -89,7 +89,10 @@ func NewConfig(cfg *config.Config) (*ssh.ServerConfig, error) {
 	cfgSSH := &ssh.ServerConfig{
 		PasswordCallback: PasswordAuth,
 		BannerCallback: func(conn ssh.ConnMetadata) string {
-			return "Welcome to ssh-ify.\n"
+			if cfg.BannerMessage != "" {
+				return cfg.BannerMessage
+			}
+			return config.DefaultBannerMessage
 		},
 	}
 
