@@ -19,22 +19,15 @@ import (
 	"github.com/ayanrajpoot10/ssh-ify/internal/ssh"
 )
 
-// Constants
 const (
 	ClientReadTimeout = 60 * time.Second
-	MaxHeaderSize     = 16384 // 16KB
+	MaxHeaderSize     = 16384
 
 	WebSocketUpgradeResponse = "HTTP/1.1 101 Switching Protocols\r\n" +
 		"Upgrade: websocket\r\n" +
 		"Connection: Upgrade\r\n" +
 		"Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n" +
 		"Sec-WebSocket-Version: 13\r\n\r\n"
-)
-
-var (
-	DefaultListenAddress string = "0.0.0.0"
-
-	DefaultListenPort int = 80
 )
 
 type Server struct {
@@ -87,20 +80,6 @@ func (s *Server) Shutdown() {
 }
 
 func NewServer(cfg *config.Config) *Server {
-	if cfg == nil {
-		cfg = &config.Config{
-			ListenAddress: DefaultListenAddress,
-			ListenPort:    DefaultListenPort,
-		}
-	}
-
-	if cfg.ListenAddress == "" {
-		cfg.ListenAddress = DefaultListenAddress
-	}
-	if cfg.ListenPort == 0 {
-		cfg.ListenPort = DefaultListenPort
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Server{
 		host:    cfg.ListenAddress,
