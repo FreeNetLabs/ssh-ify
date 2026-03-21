@@ -19,7 +19,6 @@ func main() {
 		log.Fatalf("Failed to initialize SSH server config: %v", err)
 	}
 
-	log.Println("Starting ssh-ify tunnel server...")
 	tunnel.SetSSHConfig(sshCfg)
 
 	tunnel.StartServer(cfg)

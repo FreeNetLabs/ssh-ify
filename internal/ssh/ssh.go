@@ -16,9 +16,7 @@ import (
 
 type ServerConfig = ssh.ServerConfig
 
-var (
-	userCredentials map[string]string
-)
+var userCredentials map[string]string
 
 func InitializeAuth(cfg *config.Config) error {
 	if cfg == nil {
