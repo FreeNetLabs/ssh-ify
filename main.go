@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 
 	"github.com/FreeNetLabs/ssh-ify/internal/config"
@@ -8,7 +9,10 @@ import (
 )
 
 func main() {
-	cfg, err := config.LoadConfig("")
+	configPath := flag.String("config", "config.json", "path to configuration file")
+	flag.Parse()
+
+	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
 		log.Fatalf("Failed to read config: %v", err)
 	}
