@@ -6,15 +6,15 @@ import (
 )
 
 type Config struct {
-	ListenAddress  string     `json:"addr"`
-	ListenPort     int        `json:"port"`
-	SSHHostKeyPath string     `json:"key"`
-	Banner         string     `json:"banner"`
-	Users          []AuthUser `json:"users"`
+	Addr    string `json:"addr"`
+	Port    int    `json:"port"`
+	KeyPath string `json:"key"`
+	Banner  string `json:"banner"`
+	Users   []User `json:"users"`
 }
 
-type AuthUser struct {
-	Username string `json:"user"`
+type User struct {
+	Name     string `json:"user"`
 	Password string `json:"pass"`
 }
 

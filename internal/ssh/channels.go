@@ -9,7 +9,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func HandleSSHChannels(chans <-chan ssh.NewChannel) {
+func HandleChannels(chans <-chan ssh.NewChannel) {
 	for newChannel := range chans {
 		if newChannel.ChannelType() != "direct-tcpip" {
 			newChannel.Reject(ssh.UnknownChannelType, "only port forwarding allowed")

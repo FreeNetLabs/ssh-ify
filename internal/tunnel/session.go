@@ -24,7 +24,7 @@ func (s *Session) Close() {
 	}
 }
 
-func (s *Session) Handle() {
+func (s *Session) Serve() {
 	reader := bufio.NewReader(s.client)
 	var builder strings.Builder
 	for {
@@ -41,12 +41,12 @@ func (s *Session) Handle() {
 	buf := builder.String()
 	reqLines := strings.Split(buf, "\r\n")
 
-	if WebSocketHandler(s, reqLines) {
-		s.Relay()
+	if UpgradeWebSocket(s, reqLines) {
+		s.Proxy()
 	}
 }
 
-func (s *Session) Relay() {
+func (s *Session) Proxy() {
 	defer s.Close()
 
 	go func() {

@@ -17,7 +17,7 @@ type Server struct {
 
 func Start(cfg *config.Config) {
 	s := NewServer(cfg)
-	s.ListenAndServe()
+	s.Run()
 }
 
 func NewServer(cfg *config.Config) *Server {
@@ -27,13 +27,13 @@ func NewServer(cfg *config.Config) *Server {
 	}
 
 	return &Server{
-		host:      cfg.ListenAddress,
-		port:      cfg.ListenPort,
+		host:      cfg.Addr,
+		port:      cfg.Port,
 		sshConfig: sshCfg,
 	}
 }
 
-func (s *Server) ListenAndServe() {
+func (s *Server) Run() {
 	addr := fmt.Sprintf("%s:%d", s.host, s.port)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -52,6 +52,6 @@ func (s *Server) ListenAndServe() {
 			client:    conn,
 			sshConfig: s.sshConfig,
 		}
-		go session.Handle()
+		go session.Serve()
 	}
 }

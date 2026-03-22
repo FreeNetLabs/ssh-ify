@@ -13,8 +13,8 @@ const (
 		"Connection: Upgrade\r\n\r\n"
 )
 
-func WebSocketHandler(s *Session, reqLines []string) bool {
-	upgradeHeader := HeaderValue(reqLines, "Upgrade")
+func UpgradeWebSocket(s *Session, reqLines []string) bool {
+	upgradeHeader := getHeaderValue(reqLines, "Upgrade")
 
 	if upgradeHeader == "" {
 		s.Close()
@@ -23,7 +23,7 @@ func WebSocketHandler(s *Session, reqLines []string) bool {
 
 	proxyEnd, sshEnd := net.Pipe()
 
-	go ssh.HandleSSHConnection(sshEnd, s.sshConfig, func() {})
+	go ssh.HandleConnection(sshEnd, s.sshConfig)
 	s.target = proxyEnd
 
 	if _, err := s.client.Write([]byte(WebSocketUpgradeResponse)); err != nil {
@@ -33,7 +33,7 @@ func WebSocketHandler(s *Session, reqLines []string) bool {
 	return true
 }
 
-func HeaderValue(headers []string, headerName string) string {
+func getHeaderValue(headers []string, headerName string) string {
 	headerNameLower := strings.ToLower(headerName)
 	for _, line := range headers {
 		parts := strings.SplitN(strings.TrimSpace(line), ":", 2)
