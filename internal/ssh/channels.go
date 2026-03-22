@@ -12,28 +12,6 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func ForwardData(ch ssh.Channel, targetConn net.Conn, addr string) {
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		_, err := io.Copy(targetConn, ch)
-		if err != nil && err != io.EOF {
-			log.Printf("forwardChannel: Error copying SSH->%s: %v", addr, err)
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		_, err := io.Copy(ch, targetConn)
-		if err != nil && err != io.EOF {
-			log.Printf("forwardChannel: Error copying %s->SSH: %v", addr, err)
-		}
-	}()
-	wg.Wait()
-	targetConn.Close()
-	ch.Close()
-}
-
 func HandleSSHChannels(chans <-chan ssh.NewChannel) {
 	for newChannel := range chans {
 		if !isDirectTCPIPChannel(newChannel) {
@@ -57,6 +35,28 @@ func HandleSSHChannels(chans <-chan ssh.NewChannel) {
 		go ssh.DiscardRequests(reqs)
 		go handlePortForwarding(targetHost, targetPort, ch)
 	}
+}
+
+func forwardData(ch ssh.Channel, targetConn net.Conn, addr string) {
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		_, err := io.Copy(targetConn, ch)
+		if err != nil && err != io.EOF {
+			log.Printf("forwardChannel: Error copying SSH->%s: %v", addr, err)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		_, err := io.Copy(ch, targetConn)
+		if err != nil && err != io.EOF {
+			log.Printf("forwardChannel: Error copying %s->SSH: %v", addr, err)
+		}
+	}()
+	wg.Wait()
+	targetConn.Close()
+	ch.Close()
 }
 
 func isDirectTCPIPChannel(newChannel ssh.NewChannel) bool {
@@ -85,5 +85,5 @@ func handlePortForwarding(targetHost string, targetPort uint32, ch ssh.Channel) 
 		log.Printf("HandleChannels: Error connecting to target %s: %v", addr, err)
 		return
 	}
-	ForwardData(ch, targetConn, addr)
+	forwardData(ch, targetConn, addr)
 }
