@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/FreeNetLabs/ssh-ify/internal/config"
-	"github.com/FreeNetLabs/ssh-ify/internal/tunnel"
+	"github.com/FreeNetLabs/ssh-ify/internal/proxy"
 )
 
 func main() {
@@ -17,5 +17,5 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	tunnel.Start(cfg)
+	proxy.Start(cfg)
 }

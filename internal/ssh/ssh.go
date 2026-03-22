@@ -3,7 +3,6 @@ package ssh
 import (
 	"fmt"
 	"net"
-	"os"
 
 	"github.com/FreeNetLabs/ssh-ify/internal/config"
 	"golang.org/x/crypto/ssh"
@@ -19,20 +18,9 @@ func NewConfig(cfg *config.Config) (*ServerConfig, error) {
 		}
 	}
 
-	privateBytes, err := os.ReadFile(cfg.KeyPath)
+	private, err := LoadHostKey()
 	if err != nil {
-		if err := GenerateHostKey(cfg.KeyPath); err != nil {
-			return nil, fmt.Errorf("failed to generate host key: %v", err)
-		}
-		privateBytes, err = os.ReadFile(cfg.KeyPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read generated host key: %v", err)
-		}
-	}
-
-	private, err := ssh.ParsePrivateKey(privateBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse key: %v", err)
+		return nil, fmt.Errorf("failed to load host key: %v", err)
 	}
 
 	cfgSSH := &ServerConfig{

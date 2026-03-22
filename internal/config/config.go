@@ -6,11 +6,10 @@ import (
 )
 
 type Config struct {
-	Addr    string `json:"addr"`
-	Port    int    `json:"port"`
-	KeyPath string `json:"key"`
-	Banner  string `json:"banner"`
-	Users   []User `json:"users"`
+	Addr   string `json:"addr"`
+	Port   int    `json:"port"`
+	Banner string `json:"banner"`
+	Users  []User `json:"users"`
 }
 
 type User struct {
