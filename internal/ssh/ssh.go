@@ -23,7 +23,7 @@ func NewConfig(cfg *config.Config) (*ServerConfig, error) {
 		return nil, fmt.Errorf("failed to load host key: %v", err)
 	}
 
-	cfgSSH := &ServerConfig{
+	sshCfg := &ServerConfig{
 		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
 			if expected, ok := users[c.User()]; ok && expected == string(pass) {
 				return nil, nil
@@ -36,8 +36,8 @@ func NewConfig(cfg *config.Config) (*ServerConfig, error) {
 		ServerVersion: "SSH-2.0-ssh-ify",
 	}
 
-	cfgSSH.AddHostKey(private)
-	return cfgSSH, nil
+	sshCfg.AddHostKey(private)
+	return sshCfg, nil
 }
 
 func HandleConnection(conn net.Conn, config *ServerConfig) {
