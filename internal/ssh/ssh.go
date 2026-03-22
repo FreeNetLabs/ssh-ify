@@ -21,12 +21,13 @@ func NewConfig(cfg *config.Config) (*ssh.ServerConfig, error) {
 
 	privateBytes, err := os.ReadFile(cfg.SSHHostKeyPath)
 	if err != nil {
-		privateKey, err := NewRSAPrivateKey(4096)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate key: %v", err)
+		if err := GenerateHostKey(cfg.SSHHostKeyPath); err != nil {
+			return nil, fmt.Errorf("failed to generate host key: %v", err)
 		}
-		privateBytes = RSAPrivateKeyPEM(privateKey)
-		os.WriteFile(cfg.SSHHostKeyPath, privateBytes, 0600)
+		privateBytes, err = os.ReadFile(cfg.SSHHostKeyPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read generated host key: %v", err)
+		}
 	}
 
 	private, err := ssh.ParsePrivateKey(privateBytes)

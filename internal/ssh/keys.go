@@ -5,24 +5,21 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"os"
 )
 
-func NewRSAPrivateKey(bitSize int) (*rsa.PrivateKey, error) {
-	privateKey, err := rsa.GenerateKey(rand.Reader, bitSize)
+func GenerateHostKey(keyPath string) error {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if err := privateKey.Validate(); err != nil {
-		return nil, err
-	}
-	return privateKey, nil
-}
 
-func RSAPrivateKeyPEM(privateKey *rsa.PrivateKey) []byte {
 	privDER := x509.MarshalPKCS1PrivateKey(privateKey)
 	privBlock := &pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: privDER,
 	}
-	return pem.EncodeToMemory(privBlock)
+	privateBytes := pem.EncodeToMemory(privBlock)
+
+	return os.WriteFile(keyPath, privateBytes, 0600)
 }

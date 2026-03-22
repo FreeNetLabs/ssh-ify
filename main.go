@@ -14,7 +14,7 @@ func main() {
 
 	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
-		log.Fatalf("Failed to read config: %v", err)
+		log.Fatalf("Failed to load config: %v", err)
 	}
 
 	tunnel.Start(cfg)

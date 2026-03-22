@@ -48,10 +48,10 @@ func (s *Server) ListenAndServe() {
 			log.Printf("Error accepting connection: %v", err)
 			continue
 		}
-		sess := &Session{
+		session := &Session{
 			client:    conn,
 			sshConfig: s.sshConfig,
 		}
-		go sess.Handle()
+		go session.Handle()
 	}
 }

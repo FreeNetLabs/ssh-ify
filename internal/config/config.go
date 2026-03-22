@@ -6,16 +6,16 @@ import (
 )
 
 type Config struct {
-	ListenAddress  string     `json:"listen_address"`
-	ListenPort     int        `json:"listen_port"`
-	SSHHostKeyPath string     `json:"ssh_host_key_path"`
+	ListenAddress  string     `json:"addr"`
+	ListenPort     int        `json:"port"`
+	SSHHostKeyPath string     `json:"key"`
 	Banner         string     `json:"banner"`
 	Users          []AuthUser `json:"users"`
 }
 
 type AuthUser struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Username string `json:"user"`
+	Password string `json:"pass"`
 }
 
 func LoadConfig(path string) (*Config, error) {
