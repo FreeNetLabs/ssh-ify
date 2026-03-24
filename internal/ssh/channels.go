@@ -28,8 +28,8 @@ func (s *Server) HandleChannels(chans <-chan ssh.NewChannel) {
 			continue
 		}
 
-		targetHost := string(extra[4 : 4+l])
-		targetPort := binary.BigEndian.Uint32(extra[4+l : 4+l+4])
+		host := string(extra[4 : 4+l])
+		port := binary.BigEndian.Uint32(extra[4+l : 4+l+4])
 
 		ch, reqs, err := newChannel.Accept()
 		if err != nil {
@@ -38,19 +38,21 @@ func (s *Server) HandleChannels(chans <-chan ssh.NewChannel) {
 
 		go ssh.DiscardRequests(reqs)
 
-		go func() {
-			defer ch.Close()
-			targetConn, err := net.Dial("tcp", net.JoinHostPort(targetHost, strconv.Itoa(int(targetPort))))
-			if err != nil {
-				return
-			}
-			defer targetConn.Close()
-
-			go func() {
-				io.Copy(targetConn, ch)
-				targetConn.Close()
-			}()
-			io.Copy(ch, targetConn)
-		}()
+		go s.relayChannel(ch, host, port)
 	}
+}
+
+func (s *Server) relayChannel(ch ssh.Channel, host string, port uint32) {
+	defer ch.Close()
+	conn, err := net.Dial("tcp", net.JoinHostPort(host, strconv.Itoa(int(port))))
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+
+	go func() {
+		io.Copy(conn, ch)
+		conn.Close()
+	}()
+	io.Copy(ch, conn)
 }
