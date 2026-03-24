@@ -14,9 +14,10 @@ type Server struct {
 	sshCfg *ssh.ServerConfig
 }
 
-func Start(cfg *config.Config) {
+func Start(cfg *config.Config, sshCfg *ssh.ServerConfig) {
 	s := &Server{
-		cfg: cfg,
+		cfg:    cfg,
+		sshCfg: sshCfg,
 	}
 	s.Run()
 }
@@ -30,12 +31,6 @@ func (s *Server) Run() {
 	defer ln.Close()
 
 	log.Printf("Server listening on %s", addr)
-
-	sshCfg, err := ssh.NewConfig(s.cfg)
-	if err != nil {
-		log.Fatalf("ssh config err: %v", err)
-	}
-	s.sshCfg = sshCfg
 
 	for {
 		conn, err := ln.Accept()

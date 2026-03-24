@@ -6,6 +6,7 @@ import (
 
 	"github.com/FreeNetLabs/ssh-ify/internal/config"
 	"github.com/FreeNetLabs/ssh-ify/internal/proxy"
+	"github.com/FreeNetLabs/ssh-ify/internal/ssh"
 )
 
 func main() {
@@ -17,5 +18,10 @@ func main() {
 		log.Fatalf("config err: %v", err)
 	}
 
-	proxy.Start(cfg)
+	sshCfg, err := ssh.NewConfig(cfg)
+	if err != nil {
+		log.Fatalf("ssh config err: %v", err)
+	}
+
+	proxy.Start(cfg, sshCfg)
 }
