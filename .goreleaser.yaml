@@ -1,0 +1,51 @@
+project_name: ssh-ify
+
+version: 1
+
+builds:
+  - id: ssh-ify
+    main: .
+    binary: ssh-ify
+    ldflags:
+      - -s -w
+    goos:
+      - linux
+      - darwin
+      - windows
+      - freebsd
+    goarch:
+      - amd64
+      - arm64
+      - "386"
+      - arm
+    goarm:
+      - "6"
+      - "7"
+    ignore:
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: arm64
+      - goos: freebsd
+        goarch: arm
+      - goos: freebsd
+        goarch: arm64
+
+archives:
+  - format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+release:
+  github:
+    owner: FreeNetLabs
+    name: ssh-ify
+  draft: false
+  prerelease: auto
