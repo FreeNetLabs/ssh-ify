@@ -14,13 +14,13 @@ Create a `config.json` in the same directory:
 
 ```json
 {
-  "listen_address": "0.0.0.0",
-  "listen_port": 80,
+  "addr": "0.0.0.0",
+  "port": 80,
   "banner": "Welcome to ssh-ify!\n",
   "users": [
     {
-      "username": "admin",
-      "password": "secret"
+      "user": "admin",
+      "pass": "secret"
     }
   ]
 }
