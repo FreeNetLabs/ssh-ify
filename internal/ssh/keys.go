@@ -1,48 +1,32 @@
 package ssh
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"golang.org/x/crypto/ssh"
 )
 
-const HostKeyPath = "/etc/ssh-ify/host_key"
-
 func LoadHostKey() (ssh.Signer, error) {
-	privateBytes, err := os.ReadFile(HostKeyPath)
+	home, err := os.UserHomeDir()
 	if err != nil {
-		if err := os.MkdirAll("/etc/ssh-ify", 0700); err != nil {
-			return nil, fmt.Errorf("failed to create config directory: %v", err)
-		}
-		if err := GenerateHostKey(HostKeyPath); err != nil {
-			return nil, fmt.Errorf("failed to generate host key: %v", err)
-		}
-		privateBytes, err = os.ReadFile(HostKeyPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read generated host key: %v", err)
-		}
+		return nil, fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	return ssh.ParsePrivateKey(privateBytes)
-}
-
-func GenerateHostKey(keyPath string) error {
-	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	keyPath := filepath.Join(home, ".ssh", "id_rsa")
+	privateBytes, err := os.ReadFile(keyPath)
 	if err != nil {
-		return err
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("host key not found, please generate one: ssh-keygen -t rsa -b 4096 -f %s", keyPath)
+		}
+		return nil, fmt.Errorf("failed to read host key: %w", err)
 	}
 
-	privDER := x509.MarshalPKCS1PrivateKey(privateKey)
-	privBlock := &pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: privDER,
+	signer, err := ssh.ParsePrivateKey(privateBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse host key: %w", err)
 	}
-	privateBytes := pem.EncodeToMemory(privBlock)
 
-	return os.WriteFile(keyPath, privateBytes, 0600)
+	return signer, nil
 }

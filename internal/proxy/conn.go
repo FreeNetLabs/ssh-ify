@@ -13,15 +13,6 @@ type Conn struct {
 	sshCfg *ssh.ServerConfig
 }
 
-func (c *Conn) Close() {
-	if c.client != nil {
-		c.client.Close()
-	}
-	if c.target != nil {
-		c.target.Close()
-	}
-}
-
 func (c *Conn) Serve() {
 	buf := make([]byte, 4096)
 	n, err := c.client.Read(buf)
@@ -53,4 +44,13 @@ func (c *Conn) Proxy() {
 		c.target.Close()
 	}()
 	io.Copy(c.client, c.target)
+}
+
+func (c *Conn) Close() {
+	if c.client != nil {
+		c.client.Close()
+	}
+	if c.target != nil {
+		c.target.Close()
+	}
 }
