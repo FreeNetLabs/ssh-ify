@@ -57,6 +57,6 @@ func (s *Server) HandleConnection(conn net.Conn) {
 		return
 	}
 	go ssh.DiscardRequests(reqs)
-	HandleChannels(chans)
+	s.HandleChannels(chans)
 	sshConn.Close()
 }
