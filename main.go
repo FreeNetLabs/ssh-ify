@@ -18,10 +18,10 @@ func main() {
 		log.Fatalf("config err: %v", err)
 	}
 
-	sshCfg, err := ssh.NewConfig(cfg)
+	sshServer, err := ssh.NewServer(cfg)
 	if err != nil {
-		log.Fatalf("ssh config err: %v", err)
+		log.Fatalf("ssh server err: %v", err)
 	}
 
-	proxy.Start(cfg, sshCfg)
+	proxy.Start(cfg, sshServer)
 }

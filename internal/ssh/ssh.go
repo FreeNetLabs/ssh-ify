@@ -8,9 +8,19 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-type ServerConfig = ssh.ServerConfig
+type Server struct {
+	sshCfg *ssh.ServerConfig
+}
 
-func NewConfig(cfg *config.Config) (*ServerConfig, error) {
+func NewServer(cfg *config.Config) (*Server, error) {
+	sshCfg, err := NewConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Server{sshCfg: sshCfg}, nil
+}
+
+func NewConfig(cfg *config.Config) (*ssh.ServerConfig, error) {
 	users := make(map[string]string)
 	for _, u := range cfg.Users {
 		if u.Name != "" && u.Password != "" {
@@ -23,7 +33,7 @@ func NewConfig(cfg *config.Config) (*ServerConfig, error) {
 		return nil, fmt.Errorf("load host key: %v", err)
 	}
 
-	sshCfg := &ServerConfig{
+	sshCfg := &ssh.ServerConfig{
 		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
 			if expected, ok := users[c.User()]; ok && expected == string(pass) {
 				return nil, nil
@@ -40,8 +50,8 @@ func NewConfig(cfg *config.Config) (*ServerConfig, error) {
 	return sshCfg, nil
 }
 
-func HandleConnection(conn net.Conn, config *ServerConfig) {
-	sshConn, chans, reqs, err := ssh.NewServerConn(conn, config)
+func (s *Server) HandleConnection(conn net.Conn) {
+	sshConn, chans, reqs, err := ssh.NewServerConn(conn, s.sshCfg)
 	if err != nil {
 		conn.Close()
 		return

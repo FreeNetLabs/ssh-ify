@@ -10,14 +10,14 @@ import (
 )
 
 type Server struct {
-	cfg    *config.Config
-	sshCfg *ssh.ServerConfig
+	cfg       *config.Config
+	sshServer *ssh.Server
 }
 
-func Start(cfg *config.Config, sshCfg *ssh.ServerConfig) {
+func Start(cfg *config.Config, sshServer *ssh.Server) {
 	s := &Server{
-		cfg:    cfg,
-		sshCfg: sshCfg,
+		cfg:       cfg,
+		sshServer: sshServer,
 	}
 	s.Run()
 }
@@ -40,8 +40,8 @@ func (s *Server) Run() {
 		}
 
 		clientConn := &Conn{
-			client: conn,
-			sshCfg: s.sshCfg,
+			client:    conn,
+			sshServer: s.sshServer,
 		}
 		go clientConn.Serve()
 	}

@@ -3,8 +3,6 @@ package proxy
 import (
 	"fmt"
 	"strings"
-
-	"github.com/FreeNetLabs/ssh-ify/internal/ssh"
 )
 
 const (
@@ -18,7 +16,6 @@ func UpgradeWebSocket(c *Conn) error {
 		c.Close()
 		return fmt.Errorf("write upgrade resp: %w", err)
 	}
-	ssh.HandleConnection(c.client, c.sshCfg)
 	return nil
 }
 

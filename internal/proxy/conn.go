@@ -8,8 +8,8 @@ import (
 )
 
 type Conn struct {
-	client net.Conn
-	sshCfg *ssh.ServerConfig
+	client    net.Conn
+	sshServer *ssh.Server
 }
 
 func (c *Conn) Serve() {
@@ -30,7 +30,11 @@ func (c *Conn) Serve() {
 
 	if err := UpgradeWebSocket(c); err != nil {
 		log.Printf("websocket upgrade err: %v", err)
+		c.Close()
+		return
 	}
+
+	c.sshServer.HandleConnection(c.client)
 }
 
 func (c *Conn) Close() {
