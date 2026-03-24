@@ -39,10 +39,10 @@ func (s *Server) Run() {
 			continue
 		}
 
-		proxyConn := &Conn{
+		clientConn := &Conn{
 			client: conn,
 			sshCfg: s.sshCfg,
 		}
-		go proxyConn.Serve()
+		go clientConn.Serve()
 	}
 }
