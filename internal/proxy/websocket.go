@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"fmt"
-	"net"
 	"strings"
 
 	"github.com/FreeNetLabs/ssh-ify/internal/ssh"
@@ -15,15 +14,11 @@ const (
 )
 
 func UpgradeWebSocket(c *Conn) error {
-	proxyEnd, sshEnd := net.Pipe()
-
-	go ssh.HandleConnection(sshEnd, c.sshCfg)
-	c.target = proxyEnd
-
 	if _, err := c.client.Write([]byte(WebSocketUpgradeResponse)); err != nil {
 		c.Close()
-		return fmt.Errorf("failed to write upgrade response: %w", err)
+		return fmt.Errorf("write upgrade resp: %w", err)
 	}
+	ssh.HandleConnection(c.client, c.sshCfg)
 	return nil
 }
 

@@ -1,7 +1,7 @@
 package proxy
 
 import (
-	"io"
+	"log"
 	"net"
 
 	"github.com/FreeNetLabs/ssh-ify/internal/ssh"
@@ -9,7 +9,6 @@ import (
 
 type Conn struct {
 	client net.Conn
-	target net.Conn
 	sshCfg *ssh.ServerConfig
 }
 
@@ -29,28 +28,13 @@ func (c *Conn) Serve() {
 		return
 	}
 
-	if UpgradeWebSocket(c) == nil {
-		c.Proxy()
-	} else {
-		c.Close()
+	if err := UpgradeWebSocket(c); err != nil {
+		log.Printf("websocket upgrade err: %v", err)
 	}
-}
-
-func (c *Conn) Proxy() {
-	defer c.Close()
-
-	go func() {
-		io.Copy(c.target, c.client)
-		c.target.Close()
-	}()
-	io.Copy(c.client, c.target)
 }
 
 func (c *Conn) Close() {
 	if c.client != nil {
 		c.client.Close()
-	}
-	if c.target != nil {
-		c.target.Close()
 	}
 }

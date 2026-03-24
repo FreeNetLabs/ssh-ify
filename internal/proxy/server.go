@@ -25,7 +25,7 @@ func (s *Server) Run() {
 	addr := fmt.Sprintf("%s:%d", s.cfg.Addr, s.cfg.Port)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("Failed to listen on TCP %s: %v", addr, err)
+		log.Fatalf("listen %s err: %v", addr, err)
 	}
 	defer ln.Close()
 
@@ -33,14 +33,14 @@ func (s *Server) Run() {
 
 	sshCfg, err := ssh.NewConfig(s.cfg)
 	if err != nil {
-		log.Fatalf("Failed to initialize SSH config: %v", err)
+		log.Fatalf("ssh config err: %v", err)
 	}
 	s.sshCfg = sshCfg
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			log.Printf("Error accepting connection: %v", err)
+			log.Printf("accept err: %v", err)
 			continue
 		}
 

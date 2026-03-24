@@ -18,9 +18,9 @@ func NewConfig(cfg *config.Config) (*ServerConfig, error) {
 		}
 	}
 
-	private, err := LoadHostKey()
+	private, err := loadHostKey()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load host key: %v", err)
+		return nil, fmt.Errorf("load host key: %v", err)
 	}
 
 	sshCfg := &ServerConfig{
@@ -28,7 +28,7 @@ func NewConfig(cfg *config.Config) (*ServerConfig, error) {
 			if expected, ok := users[c.User()]; ok && expected == string(pass) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("invalid credentials")
+			return nil, fmt.Errorf("invalid creds")
 		},
 		BannerCallback: func(conn ssh.ConnMetadata) string {
 			return cfg.Banner
