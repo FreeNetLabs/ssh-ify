@@ -13,7 +13,7 @@ func main() {
 	configPath := flag.String("config", "config.json", "path to configuration file")
 	flag.Parse()
 
-	cfg, err := config.LoadConfig(*configPath)
+	cfg, err := config.Load(*configPath)
 	if err != nil {
 		log.Fatalf("config err: %v", err)
 	}
