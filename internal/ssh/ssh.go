@@ -9,18 +9,18 @@ import (
 )
 
 type Server struct {
-	sshCfg *ssh.ServerConfig
+	ServerCfg *ssh.ServerConfig
 }
 
 func NewServer(cfg *config.Config) (*Server, error) {
-	sshCfg, err := NewConfig(cfg)
+	ServerCfg, err := NewServerConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return &Server{sshCfg: sshCfg}, nil
+	return &Server{ServerCfg: ServerCfg}, nil
 }
 
-func NewConfig(cfg *config.Config) (*ssh.ServerConfig, error) {
+func NewServerConfig(cfg *config.Config) (*ssh.ServerConfig, error) {
 	users := make(map[string]string)
 	for _, u := range cfg.Users {
 		if u.Name != "" && u.Password != "" {
@@ -50,13 +50,13 @@ func NewConfig(cfg *config.Config) (*ssh.ServerConfig, error) {
 	return sshCfg, nil
 }
 
-func (s *Server) HandleConnection(conn net.Conn) {
-	sshConn, chans, reqs, err := ssh.NewServerConn(conn, s.sshCfg)
+func (s *Server) Serve(conn net.Conn) {
+	sshConn, chans, reqs, err := ssh.NewServerConn(conn, s.ServerCfg)
 	if err != nil {
 		conn.Close()
 		return
 	}
 	go ssh.DiscardRequests(reqs)
-	s.HandleChannels(chans)
+	s.ServeChannels(chans)
 	sshConn.Close()
 }

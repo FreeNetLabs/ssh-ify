@@ -20,9 +20,9 @@ func (c *Conn) Serve() {
 		return
 	}
 
-	reqData := string(buf[:n])
+	req := string(buf[:n])
 
-	if !IsWebSocketUpgrade(reqData) {
+	if !IsWebSocketUpgrade(req) {
 		c.client.Write([]byte("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK"))
 		c.Close()
 		return
@@ -34,7 +34,7 @@ func (c *Conn) Serve() {
 		return
 	}
 
-	c.sshServer.HandleConnection(c.client)
+	c.sshServer.Serve(c.client)
 }
 
 func (c *Conn) Close() {
