@@ -6,13 +6,13 @@ import (
 )
 
 const (
-	WebSocketUpgradeResponse = "HTTP/1.1 101 Switching Protocols\r\n" +
+	webSocketUpgradeResponse = "HTTP/1.1 101 Switching Protocols\r\n" +
 		"Upgrade: websocket\r\n" +
 		"Connection: Upgrade\r\n\r\n"
 )
 
 func UpgradeWebSocket(c *Conn) error {
-	if _, err := c.client.Write([]byte(WebSocketUpgradeResponse)); err != nil {
+	if _, err := c.client.Write([]byte(webSocketUpgradeResponse)); err != nil {
 		c.Close()
 		return fmt.Errorf("write upgrade resp: %w", err)
 	}
