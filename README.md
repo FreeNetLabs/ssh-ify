@@ -1,6 +1,6 @@
 # ssh-ify
 
-A lightweight, standalone SSH server and tunneler written in Go.
+A lightweight, standalone SSH Websocket server written in Go.
 
 ## Install
 
@@ -14,7 +14,7 @@ Create a `config.json` in the same directory:
 
 ```json
 {
-  "addr": "0.0.0.0",
+  "address": "0.0.0.0",
   "port": 80,
   "banner": "Welcome to ssh-ify!\n",
   "users": [

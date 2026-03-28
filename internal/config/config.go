@@ -6,7 +6,7 @@ import (
 )
 
 type Config struct {
-	Addr   string `json:"addr"`
+	Addr   string `json:"address"`
 	Port   int    `json:"port"`
 	Banner string `json:"banner"`
 	Users  []User `json:"users"`
