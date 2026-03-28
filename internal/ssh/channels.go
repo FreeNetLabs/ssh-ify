@@ -10,39 +10,39 @@ import (
 )
 
 func (s *Server) ServeChannels(chans <-chan ssh.NewChannel) {
-	for newChannel := range chans {
-		if newChannel.ChannelType() != "direct-tcpip" {
-			newChannel.Reject(ssh.UnknownChannelType, "only port forwarding allowed")
+	for newCh := range chans {
+		if newCh.ChannelType() != "direct-tcpip" {
+			newCh.Reject(ssh.UnknownChannelType, "only port forwarding allowed")
 			continue
 		}
 
-		extra := newChannel.ExtraData()
+		extra := newCh.ExtraData()
 		if len(extra) < 4 {
-			newChannel.Reject(ssh.Prohibited, "invalid data")
+			newCh.Reject(ssh.Prohibited, "invalid data")
 			continue
 		}
 
 		l := int(binary.BigEndian.Uint32(extra[:4]))
 		if len(extra) < 4+l+4 {
-			newChannel.Reject(ssh.Prohibited, "invalid data")
+			newCh.Reject(ssh.Prohibited, "invalid data")
 			continue
 		}
 
 		host := string(extra[4 : 4+l])
 		port := binary.BigEndian.Uint32(extra[4+l : 4+l+4])
 
-		ch, reqs, err := newChannel.Accept()
+		ch, reqs, err := newCh.Accept()
 		if err != nil {
 			continue
 		}
 
 		go ssh.DiscardRequests(reqs)
 
-		go s.relayChannel(ch, host, port)
+		go s.forword(ch, host, port)
 	}
 }
 
-func (s *Server) relayChannel(ch ssh.Channel, host string, port uint32) {
+func (s *Server) forword(ch ssh.Channel, host string, port uint32) {
 	defer ch.Close()
 	conn, err := net.Dial("tcp", net.JoinHostPort(host, strconv.Itoa(int(port))))
 	if err != nil {
