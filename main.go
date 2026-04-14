@@ -1,8 +1,9 @@
 package main
 
 import (
-	"flag"
 	"log"
+
+	"github.com/spf13/pflag"
 
 	"github.com/FreeNetLabs/ssh-ify/internal/config"
 	"github.com/FreeNetLabs/ssh-ify/internal/proxy"
@@ -10,8 +11,11 @@ import (
 )
 
 func main() {
-	configPath := flag.String("config", "config.json", "path to configuration file")
-	flag.Parse()
+	log.SetFlags(log.Ltime)
+
+	configPath := pflag.StringP("config", "c", "config.json", "Path to config file")
+
+	pflag.Parse()
 
 	cfg, err := config.Load(*configPath)
 	if err != nil {
